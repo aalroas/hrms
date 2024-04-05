@@ -116,7 +116,7 @@ class LeaveApplication(Document):
 		self.cancel_attendance()
 
 	def validate_applicable_after(self):
-		if self.leave_type:
+		if self.leave_type and self.doctype != "Leave Application":
 			leave_type = frappe.get_doc("Leave Type", self.leave_type)
 			if leave_type.applicable_after > 0:
 				date_of_joining = frappe.db.get_value("Employee", self.employee, "date_of_joining")
