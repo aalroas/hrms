@@ -3,7 +3,7 @@
 
 import datetime
 from typing import Dict, Optional, Tuple, Union
-
+from datetime import datetime
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Max, Min, Sum
@@ -18,6 +18,7 @@ from frappe.utils import (
 	get_link_to_form,
 	getdate,
 	nowdate,
+	time_diff,
 )
 
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
@@ -80,6 +81,13 @@ class LeaveApplication(Document):
 		if frappe.db.get_value("Leave Type", self.leave_type, "is_optional_leave"):
 			self.validate_optional_leave()
 		self.validate_applicable_after()
+		self.check_to_time_and_from_time()
+
+	def check_to_time_and_from_time(self):
+		if self.custom_hourly:
+			if self.custom_from_time and self.custom_to_time:
+				if self.custom_from_time >= self.custom_to_time:
+					frappe.throw(_("From Time should be less than To Time"))
 
 	def on_update(self):
 		if self.status == "Open" and self.docstatus < 1:
@@ -264,7 +272,7 @@ class LeaveApplication(Document):
 			if self.half_day_date and getdate(date) == getdate(self.half_day_date)
 			else "On Leave"
 		)
-
+		status = ("Hourly" if self.custom_hourly else status)
 		if attendance_name:
 			# update existing attendance, change absent to on leave
 			doc = frappe.get_doc("Attendance", attendance_name)
@@ -344,9 +352,9 @@ class LeaveApplication(Document):
 	def validate_balance_leaves(self):
 		if self.from_date and self.to_date:
 			self.total_leave_days = get_number_of_leave_days(
-				self.employee, self.leave_type, self.from_date, self.to_date, self.half_day, self.half_day_date
+				self.employee, self.leave_type, self.from_date, self.to_date, self.custom_from_time, self.custom_to_time, self.custom_hourly, self.half_day, self.half_day_date
 			)
-
+			print(self.total_leave_days)
 			if self.total_leave_days <= 0:
 				frappe.throw(
 					_(
@@ -734,14 +742,18 @@ def get_number_of_leave_days(
 	leave_type: str,
 	from_date: datetime.date,
 	to_date: datetime.date,
+	custom_from_time: Union[datetime.time, None] = None,
+	custom_to_time: Union[datetime.time, None] = None,
+	custom_hourly: Union[int, str , None] = None,
 	half_day: Union[int, str, None] = None,
 	half_day_date: Union[datetime.date, str, None] = None,
 	holiday_list: Optional[str] = None,
 ) -> float:
 	"""Returns number of leave days between 2 dates after considering half day and holidays
 	(Based on the include_holiday setting in Leave Type)"""
+	
 	number_of_days = 0
-	if cint(half_day) == 1:
+	if cint(half_day) == 1 and cint(custom_hourly) != 1:
 		if getdate(from_date) == getdate(to_date):
 			number_of_days = 0.5
 		elif half_day_date and getdate(from_date) <= getdate(half_day_date) <= getdate(to_date):
@@ -749,8 +761,15 @@ def get_number_of_leave_days(
 		else:
 			number_of_days = date_diff(to_date, from_date) + 1
 	else:
-		number_of_days = date_diff(to_date, from_date) + 1
-
+		if cint(custom_hourly) == 1:
+			if custom_from_time and custom_to_time:
+				if ((time_diff(custom_to_time, custom_from_time)).seconds / 3600) != 0:
+					number_of_days = (time_diff(custom_to_time, custom_from_time)).seconds / 3600
+					number_of_days = number_of_days / 9
+			else:
+				number_of_days = date_diff(to_date, from_date) + 1
+		else:
+			number_of_days = date_diff(to_date, from_date) + 1
 	if not frappe.db.get_value("Leave Type", leave_type, "include_holiday"):
 		number_of_days = flt(number_of_days) - flt(
 			get_holidays(employee, from_date, to_date, holiday_list=holiday_list)
@@ -771,7 +790,7 @@ def get_leave_details(employee, date):
 		)
 
 		end_date = allocation.to_date
-		leaves_taken = get_leaves_for_period(employee, d, allocation.from_date, end_date) * -1
+		leaves_taken = get_leaves_for_period(employee, d, allocation.from_date, end_date, custom_from_time = None, custom_to_time = None) * -1
 		leaves_pending = get_leaves_pending_approval_for_period(
 			employee, d, allocation.from_date, end_date
 		)
@@ -996,11 +1015,13 @@ def get_leaves_for_period(
 	leave_type: str,
 	from_date: datetime.date,
 	to_date: datetime.date,
+	custom_from_time: Union[datetime.time, None] = None,
+	custom_to_time: Union[datetime.time, None] = None,
+	custom_hourly: Union[int, str , None] = None,
 	skip_expired_leaves: bool = True,
 ) -> float:
 	leave_entries = get_leave_entries(employee, leave_type, from_date, to_date)
 	leave_days = 0
-
 	for leave_entry in leave_entries:
 		inclusive_period = leave_entry.from_date >= getdate(
 			from_date
@@ -1031,13 +1052,25 @@ def get_leaves_for_period(
 				half_day_date = frappe.db.get_value(
 					"Leave Application", {"name": leave_entry.transaction_name}, ["half_day_date"]
 				)
-
+			
+			custom_from_time = frappe.db.get_value(
+				"Leave Application", {"name": leave_entry.transaction_name}, ["custom_from_time"]
+			)
+			custom_to_time = frappe.db.get_value(
+				"Leave Application", {"name": leave_entry.transaction_name}, ["custom_to_time"]
+			)
+			custom_hourly = frappe.db.get_value(
+				"Leave Application", {"name": leave_entry.transaction_name}, ["custom_hourly"]
+			)
 			leave_days += (
 				get_number_of_leave_days(
 					employee,
 					leave_type,
 					leave_entry.from_date,
 					leave_entry.to_date,
+					custom_from_time,
+					custom_to_time,
+					custom_hourly,
 					half_day,
 					half_day_date,
 					holiday_list=leave_entry.holiday_list,
