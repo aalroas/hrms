@@ -19,6 +19,7 @@ from frappe.utils import (
 	get_link_to_form,
 	getdate,
 	rounded,
+	add_days
 )
 
 
@@ -236,6 +237,7 @@ class LeavePolicyAssignment(Document):
 			date_of_joining, leave_details.allocate_on_day
 		)
 		current_date, from_date = _get_current_and_from_date()
+		from_date = add_days(from_date, leave_details.applicable_after)
 		months_passed = _get_months_passed(current_date, from_date, consider_current_month)
 
 		if months_passed > 0:
@@ -351,6 +353,7 @@ def get_leave_type_details():
 			"expire_carry_forwarded_leaves_after_days",
 			"earned_leave_frequency",
 			"rounding",
+			"applicable_after",
 		],
 	)
 	for d in leave_types:
