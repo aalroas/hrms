@@ -86,7 +86,8 @@ class LeaveApplication(Document):
 	def check_to_time_and_from_time(self):
 		if self.custom_hourly:
 			if self.custom_from_time and self.custom_to_time:
-				if self.custom_from_time >= self.custom_to_time:
+				time_taken = time_diff(self.custom_to_time, self.custom_from_time).seconds / 3600
+				if time_taken > 9: # we work 9 hour so no one can take more than 9 hour leave
 					frappe.throw(_("From Time should be less than To Time"))
 
 	def on_update(self):
@@ -354,7 +355,6 @@ class LeaveApplication(Document):
 			self.total_leave_days = get_number_of_leave_days(
 				self.employee, self.leave_type, self.from_date, self.to_date, self.custom_from_time, self.custom_to_time, self.custom_hourly, self.half_day, self.half_day_date
 			)
-			print(self.total_leave_days)
 			if self.total_leave_days <= 0:
 				frappe.throw(
 					_(
@@ -774,7 +774,7 @@ def get_number_of_leave_days(
 		number_of_days = flt(number_of_days) - flt(
 			get_holidays(employee, from_date, to_date, holiday_list=holiday_list)
 		)
-	return number_of_days
+	return round(number_of_days, 2)
 
 
 @frappe.whitelist()

@@ -105,6 +105,11 @@ frappe.ui.form.on("Leave Application", {
 		}
 
 		frm.trigger("set_employee");
+		if(frm.doc.custom_hourly && frm.doc.company) {
+			frm.set_df_property("to_date", "read_only", 1);
+			frm.set_value("to_date", frm.doc.from_date);
+			frm.trigger("check_company");
+		}
 	},
 
 	async set_employee(frm) {
@@ -164,112 +169,110 @@ frappe.ui.form.on("Leave Application", {
 		}
 	},
 	custom_from_time: function(frm) {
+		if(frm.doc.custom_from_time) {
+			if (frm.doc.custom_from_time < "08:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time before 08:30"));
+			}
+			if (frm.doc.custom_from_time > "17:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time after 17:30"));
+				frm.set_value("custom_from_time", "17:30:00");
+				frm.refresh_field("custom_from_time");
+			}
+			if (frm.doc.custom_from_time < "09:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time before 09:00"));
+			}
+			if (frm.doc.custom_from_time > "18:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time after 18:00"));
+				frm.set_value("custom_from_time", "18:00:00");
+				frm.refresh_field("custom_from_time");
+			}
+		}
 		frm.trigger("calculate_total_days");
 		frm.trigger("check_from_time_minutes");
-		if (frm.doc.custom_from_time < "08:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 08:30"));
-			frm.refresh_field("custom_from_time");
-		}
-		if (frm.doc.custom_from_time > "17:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 17:30"));
-			frm.refresh_field("custom_from_time");
-		}
-		if (frm.doc.custom_from_time < "09:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 09:00"));
-			frm.refresh_field("custom_from_time");
-		}
-		if (frm.doc.custom_from_time > "18:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 18:00"));
-			frm.refresh_field("custom_from_time");
-		}
-		frm.refresh_field("custom_from_time");
 	},
 	custom_to_time: function(frm) {
+		if(frm.doc.custom_to_time) {
+			if (frm.doc.custom_to_time < "08:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time before 08:30"));
+			}
+			if (frm.doc.custom_to_time > "17:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time after 17:30"));
+				frm.set_value("custom_to_time", "17:30:00");
+				frm.refresh_field("custom_to_time");
+			}
+			if (frm.doc.custom_to_time < "09:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time before 09:00"));
+			}
+			if (frm.doc.custom_to_time > "18:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
+				frappe.msgprint(__("You can not select time after 18:00"));
+				frm.set_value("custom_to_time", "18:00:00");
+				frm.refresh_field("custom_to_time");
+			}
+		}
 		frm.trigger("calculate_total_days");
 		frm.trigger("check_to_time_minutes");
-		if (frm.doc.custom_to_time < "08:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 08:30"));
-			frm.refresh_field("custom_to_time");
-		}
-		if (frm.doc.custom_to_time > "17:30:00" && frm.doc.company != "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 17:30"));
-			frm.refresh_field("custom_to_time");
-		}
-		if (frm.doc.custom_to_time < "09:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 09:00"));
-		}
-		if (frm.doc.custom_to_time > "18:00:00" && frm.doc.company == "Ekin Software Teknoloji") {
-			frappe.msgprint(__("You can not select time before 18:00"));
-			frm.set_value("custom_to_time", "18:00:00");
-
-		}
-		frm.refresh_field("custom_to_time");
 	},
 	check_from_time_minutes: function(frm) {
-		let from_time = frm.fields_dict.custom_from_time.datepicker.timepicker;
-		if (frm.doc.company != "Ekin Software Teknoloji") {
-			if (from_time.displayHours == 8) {
-				from_time.opts.minMinutes = 30
+		let from_time;
+		if (frm.fields_dict.custom_from_time.datepicker) {
+			from_time = frm.fields_dict.custom_from_time.datepicker.timepicker;
+			if (frm.doc.company != "Ekin Software Teknoloji") {
+				if (from_time.displayHours == 8) {
+					from_time.opts.minMinutes = 30
+				}
+				else if (from_time.displayHours == 17) {
+					from_time.opts.maxMinutes = 30
+				}
+				else if ((from_time.displayHours > 8 && from_time.displayHours < 17) || ("08:30:00" < frm.doc.custom_to_time < "17:30:00")) {
+					from_time.opts.maxMinutes = 59
+				}
 			}
-			else if (from_time.displayHours == 17) {
-				from_time.opts.maxMinutes = 30
+			else if (frm.doc.company == "Ekin Software Teknoloji") {
+				if (from_time.displayHours == 18) {
+					from_time.opts.maxMinutes = 0
+				} else {
+					from_time.opts.maxMinutes = 59
+				}
+				if (from_time.displayHours == 17) {
+					frm.fields_dict.custom_from_time.datepicker.hide();
+					frm.fields_dict.custom_from_time.datepicker.show();
+				}
 			}
-			else if ((from_time.displayHours > 8 && from_time.displayHours < 17) || ("08:30:00" < frm.doc.custom_to_time < "17:30:00")) {
-				from_time.opts.maxMinutes = 59
-			}
-			frm.refresh_field("custom_from_time");
 		}
-		else if (frm.doc.company == "Ekin Software Teknoloji") {
-			if (from_time.displayHours == 9) {
-				from_time.opts.maxMinutes = 59
-			}
-			else if (from_time.displayHours == 18) {
-				from_time.opts.maxMinutes = 0
-			}
-			else if ((from_time.displayHours > 9 && from_time.displayHours < 18) || ("09:00:00" < frm.doc.custom_to_time < "18:00:00")) {
-				from_time.opts.maxMinutes = 59
-			}
-			frm.refresh_field("custom_from_time");
-		}
-		frm.refresh_field("custom_from_time");
 	},
 	check_to_time_minutes: function(frm) {
-		let to_time = frm.fields_dict.custom_to_time.datepicker.timepicker;
-		if (frm.doc.company != "Ekin Software Teknoloji") {
-			if (to_time.displayHours == 8) {
-				to_time.opts.minMinutes = 30
+		let to_time;
+
+		if (frm.fields_dict.custom_to_time.datepicker) {
+			to_time = frm.fields_dict.custom_to_time.datepicker.timepicker;
+			if (frm.doc.company != "Ekin Software Teknoloji") {
+				if (to_time.displayHours == 8) {
+					to_time.opts.minMinutes = 30
+				}
+				else if (to_time.displayHours == 17) {
+					to_time.opts.maxMinutes = 30
+				}
+				else if ((to_time.displayHours > 8 && to_time.displayHours < 17) || ("08:30:00" < frm.doc.custom_to_time < "17:30:00")) {
+					to_time.opts.maxMinutes = 59
+				}
 			}
-			else if (to_time.displayHours == 17) {
-				to_time.opts.maxMinutes = 30
+			else if (frm.doc.company == "Ekin Software Teknoloji") {
+				if (to_time.displayHours == 18) {
+					to_time.opts.maxMinutes = 0
+				} else {
+					to_time.opts.maxMinutes = 59
+				}
+				if (to_time.displayHours == 17) {
+					frm.fields_dict.custom_to_time.datepicker.hide();
+					frm.fields_dict.custom_to_time.datepicker.show();
+				}
 			}
-			else if ((to_time.displayHours > 8 && to_time.displayHours < 17) || ("08:30:00" < frm.doc.custom_to_time < "17:30:00")) {
-				to_time.opts.maxMinutes = 59
-			}
-			frm.refresh_field("custom_to_time");
 		}
-		else if (frm.doc.company == "Ekin Software Teknoloji") {
-			if (to_time.displayHours == 9) {
-				to_time.opts.maxMinutes = 0
-			}
-			else if (to_time.displayHours == 18) {
-				to_time.opts.maxMinutes = 0
-			}
-			else if ((to_time.displayHours > 9 && to_time.displayHours < 18) || ("09:00:00" < frm.doc.custom_to_time < "18:00:00")) {
-				to_time.opts.maxMinutes = 59
-			}
-			frm.refresh_field("custom_to_time");
-		}
-		frm.refresh_field("custom_to_time");
 	},
 	custom_hourly: function(frm) {
 		if (frm.doc.custom_hourly == 1) {
 			frm.set_df_property("to_date", "read_only", 1);
-			if (frm.doc.to_date) {
-				frm.set_value("to_date", frm.doc.from_date);
-			}
-			else {
-				frm.set_value("to_date", frm.doc.from_date);
-			}
+			frm.set_value("to_date", frm.doc.from_date);
 			frm.trigger("check_company");
 		}
 		if (frm.doc.custom_hourly == 0) {
@@ -283,28 +286,50 @@ frappe.ui.form.on("Leave Application", {
 		}
 	},
 	check_company: function(frm) {
-		let to_time = frm.fields_dict.custom_to_time.datepicker.timepicker;
-		let from_time = frm.fields_dict.custom_from_time.datepicker.timepicker;
+		let to_time;
+		if (frm.fields_dict.custom_to_time.datepicker) {
+			to_time = frm.fields_dict.custom_to_time.datepicker.timepicker;
+		}
+		let from_time;
+		if (frm.fields_dict.custom_from_time.datepicker) {
+			from_time = frm.fields_dict.custom_from_time.datepicker.timepicker;
+		}
 		if (frm.doc.employee) {
 			if (frm.doc.company != "Ekin Software Teknoloji") {
-				from_time.opts.minHours = 8
-				from_time.opts.maxHours = 17
-				to_time.opts.minHours = 8
-				to_time.opts.maxHours = 17
-				frm.set_value("custom_from_time", "08:30:00");
-				frm.set_value("custom_to_time", "17:30:00");
-				frm.refresh_field("custom_from_time");
-				frm.refresh_field("custom_to_time");
+				if(from_time) {
+					from_time.opts.minHours = 8
+					from_time.opts.maxHours = 17
+				}
+				if(to_time) {
+					to_time.opts.minHours = 8
+					to_time.opts.maxHours = 17
+				}
+				if(!frm.doc.custom_from_time) {
+					frm.set_value("custom_from_time", "08:30:00");
+					frm.refresh_field("custom_from_time");
+				}
+				if(!frm.doc.custom_to_time) {
+					frm.set_value("custom_to_time", "17:30:00");
+					frm.refresh_field("custom_to_time");
+				}
 			}
 			else {
-				from_time.opts.minHours = 9
-				from_time.opts.maxHours = 18
-				to_time.opts.minHours = 9
-				to_time.opts.maxHours = 18
-				frm.set_value("custom_from_time", "09:00:00");
-				frm.set_value("custom_to_time", "18:00:00");
-				frm.refresh_field("custom_from_time");
-				frm.refresh_field("custom_to_time");
+				if(from_time) {
+					from_time.opts.minHours = 9
+					from_time.opts.maxHours = 18
+				}
+				if(to_time) {
+					to_time.opts.minHours = 9
+					to_time.opts.maxHours = 18
+				}
+				if(!frm.doc.custom_from_time) {
+					frm.set_value("custom_from_time", "09:00:00");
+					frm.refresh_field("custom_from_time");
+				}
+				if(!frm.doc.custom_to_time) {
+					frm.set_value("custom_to_time", "18:00:00");
+					frm.refresh_field("custom_to_time");
+				}
 			}
 		}
 	},
@@ -315,10 +340,12 @@ frappe.ui.form.on("Leave Application", {
 	half_day_datepicker: function(frm) {
 		frm.set_value("half_day_date", "");
 		let half_day_datepicker = frm.fields_dict.half_day_date.datepicker;
-		half_day_datepicker.update({
-			minDate: frappe.datetime.str_to_obj(frm.doc.from_date),
-			maxDate: frappe.datetime.str_to_obj(frm.doc.to_date)
-		});
+		if(half_day_datepicker) {
+			half_day_datepicker.update({
+				minDate: frappe.datetime.str_to_obj(frm.doc.from_date),
+				maxDate: frappe.datetime.str_to_obj(frm.doc.to_date)
+			});
+		}
 	},
 	get_leave_balance: function(frm) {
 		if (frm.doc.docstatus === 0 && frm.doc.employee && frm.doc.leave_type && frm.doc.from_date && frm.doc.to_date) {
