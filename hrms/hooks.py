@@ -211,6 +211,7 @@ accounting_dimension_doctypes = [
 	"Expense Claim Detail",
 	"Expense Taxes and Charges",
 	"Payroll Entry",
+    "Employee Advance",
 ]
 
 bank_reconciliation_doctypes = ["Expense Claim"]
